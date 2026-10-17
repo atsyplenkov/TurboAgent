@@ -158,6 +158,10 @@ Edit `turbo-agent.yaml`. API keys can reference environment variables with `$VAR
 | `anthropic/` | Anthropic |
 | (none) | OpenAI-compatible endpoint |
 
+Backend models also take a `base_url`: an `openai/`-prefixed entry (or a bare
+served model id) with `base_url` routes candidates to any OpenAI-compatible
+endpoint — a local vLLM server, a proxy, a gateway.
+
 The same prefixes select the **verifier** backend, except `anthropic/`. The verifier scores with
 token logprobs, so it needs a backend that returns them: Gemini through Vertex
 AI (`provider: vertex_ai`), DeepSeek through its hosted API, or any

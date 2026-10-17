@@ -100,6 +100,9 @@ class Config:
             key = model.get("api_key", "")
             if isinstance(key, str) and key.startswith("$"):
                 model["api_key"] = self._resolve_env(key)
+            base_url = model.get("base_url", "")
+            if isinstance(base_url, str) and base_url.startswith("$"):
+                model["base_url"] = self._resolve_env(base_url)
 
     # ------------------------------------------------------------------
     # Backend

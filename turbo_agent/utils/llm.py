@@ -23,6 +23,7 @@ def _build_kwargs(
     model: str,
     messages: List[Dict[str, Any]],
     api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
     max_tokens: Optional[int] = None,
     max_completion_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
@@ -49,6 +50,8 @@ def _build_kwargs(
     }
     if api_key is not None:
         kwargs["api_key"] = api_key
+    if base_url is not None:
+        kwargs["base_url"] = base_url
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
     if max_completion_tokens is not None:
@@ -94,6 +97,7 @@ async def llm_completion(
     model: str,
     messages: List[Dict[str, Any]],
     api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
     max_tokens: Optional[int] = None,
     max_completion_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
@@ -118,6 +122,7 @@ async def llm_completion(
     params = _build_kwargs(
         model, messages,
         api_key=api_key,
+        base_url=base_url,
         max_tokens=max_tokens,
         max_completion_tokens=max_completion_tokens,
         temperature=temperature,
@@ -145,6 +150,7 @@ async def llm_stream_completion(
     model: str,
     messages: List[Dict[str, Any]],
     api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
     top_p: Optional[float] = None,
@@ -160,6 +166,7 @@ async def llm_stream_completion(
     params = _build_kwargs(
         model, messages,
         api_key=api_key,
+        base_url=base_url,
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,

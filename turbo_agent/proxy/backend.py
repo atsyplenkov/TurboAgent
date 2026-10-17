@@ -95,6 +95,9 @@ class Backend:
                 params["thinking_budget"] = int(thinking)
             elif isinstance(thinking, str):
                 params["reasoning_effort"] = thinking
+        # Route the model at any OpenAI-compatible endpoint.
+        if model.get("base_url") is not None:
+            params["base_url"] = model["base_url"]
         return params
 
     def _base_params(self) -> dict:
