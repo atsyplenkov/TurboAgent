@@ -47,6 +47,25 @@ def _capture_params(completion, **call_kwargs):
     return captured
 
 
+def _capture_backend_entries(yaml_text):
+    """Run one _gather_completions() pass with llm_completion stubbed."""
+    cfg = _config_from_yaml(yaml_text)
+    captured = []
+
+    async def fake_completion(**kwargs):
+        captured.append(kwargs)
+        return {"choices": [{"message": {"content": "x"}}]}
+
+    real = backend_mod.llm_completion
+    backend_mod.llm_completion = fake_completion
+    try:
+        backend = backend_mod.Backend(cfg)
+        asyncio.run(backend._gather_completions({"messages": []}))
+    finally:
+        backend_mod.llm_completion = real
+    return captured
+
+
 def test_base_url_reaches_litellm():
     captured = _capture_params(llm_mod.llm_completion, api_key="test-key",
                                base_url="http://localhost:9002/v1")
@@ -62,38 +81,43 @@ def test_base_url_reaches_litellm_when_streaming():
     assert captured["stream"] is True
 
 
-def test_base_url_is_omitted_when_not_configured():
+def test_extra_headers_reach_litellm():
+    headers = {"User-Agent": "my-agent/1.0", "x-opencode-session": "abc"}
+    captured = _capture_params(llm_mod.llm_completion, api_key="test-key",
+                               extra_headers=headers)
+    assert captured["extra_headers"] == headers
+
+
+def test_extra_headers_reach_litellm_when_streaming():
+    headers = {"User-Agent": "my-agent/1.0"}
+    captured = _capture_params(llm_mod.llm_stream_completion,
+                               api_key="test-key", extra_headers=headers)
+    assert captured["extra_headers"] == headers
+
+
+def test_transport_params_are_omitted_when_not_configured():
     captured = _capture_params(llm_mod.llm_completion, api_key="test-key")
     assert "base_url" not in captured
+    assert "extra_headers" not in captured
 
 
-def test_backend_entries_carry_base_url():
+def test_backend_entries_carry_base_url_and_headers():
     """The per-candidate entry dicts built by _model_entries() must include
-    base_url, or it never reaches llm_completion()'s kwargs at all."""
-    cfg = _config_from_yaml("""
+    base_url and extra_headers, or they never reach llm_completion()."""
+    captured = _capture_backend_entries("""
 backend:
   models:
     - name: openai/some-model
       base_url: http://localhost:9002/v1
       api_key: test-key
+      extra_headers:
+        User-Agent: my-agent/1.0
       num_candidates: 2
 """)
-    captured = []
-
-    async def fake_completion(**kwargs):
-        captured.append(kwargs)
-        return {"choices": [{"message": {"content": "x"}}]}
-
-    real = backend_mod.llm_completion
-    backend_mod.llm_completion = fake_completion
-    try:
-        backend = backend_mod.Backend(cfg)
-        responses = asyncio.run(backend._gather_completions({"messages": []}))
-    finally:
-        backend_mod.llm_completion = real
-
-    assert len(responses) == 2
+    assert len(captured) == 2
     assert all(c["base_url"] == "http://localhost:9002/v1" for c in captured)
+    assert all(c["extra_headers"] == {"User-Agent": "my-agent/1.0"}
+               for c in captured)
     assert all(c["model"] == "openai/some-model" for c in captured)
 
 
@@ -108,6 +132,39 @@ backend:
 """)
     assert cfg.models[0]["base_url"] == "http://localhost:9002/v1"
     assert cfg.default_model["base_url"] == "http://localhost:9002/v1"
+
+
+def test_backend_extra_headers_are_resolved_from_the_environment():
+    os.environ["TEST_SESSION_ID"] = "session-123"
+    cfg = _config_from_yaml("""
+backend:
+  models:
+    - name: openai/some-model
+      api_key: test-key
+      extra_headers:
+        User-Agent: my-agent/1.0
+        x-session: $TEST_SESSION_ID
+        x-count: 42
+""")
+    assert cfg.models[0]["extra_headers"] == {
+        "User-Agent": "my-agent/1.0", "x-session": "session-123",
+        "x-count": "42",
+    }
+
+
+def test_sanitized_config_masks_header_values():
+    cfg = _config_from_yaml("""
+backend:
+  models:
+    - name: openai/some-model
+      api_key: test-key
+      extra_headers:
+        Authorization: Bearer secret
+""")
+    backend = backend_mod.Backend(cfg)
+    model = backend._sanitized_config()["backend"]["models"][0]
+    assert model["api_key"] == "***"
+    assert model["extra_headers"] == {"Authorization": "***"}
 
 
 if __name__ == "__main__":

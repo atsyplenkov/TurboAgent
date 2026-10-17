@@ -182,6 +182,29 @@ verifier:
     api_key: $OPENAI_API_KEY
 ```
 
+### Custom headers for gateways
+
+Some OpenAI-compatible gateways require extra request headers. Backend
+models, the verifier, and the progress monitor accept an `extra_headers`
+map, and the proxy sends it with every OpenAI-compatible upstream call.
+(Verifiers on the `deepseek/` or `gemini/` backends use provider-specific
+clients and ignore it.)
+
+```yaml
+backend:
+  models:
+    - name: openai/deepseek-v4.1-flash
+      base_url: https://opencode.ai/inference/go/openai/v1
+      api_key: $OPENCODE_API_KEY
+      extra_headers:
+        User-Agent: my-agent/1.0          # some gateways reject generic UAs
+        x-opencode-session: $OPENCODE_SESSION_ID
+```
+
+Values may reference environment variables with `$VAR_NAME`, like `api_key`.
+When the verifier points at the same gateway, give `verifier.model` the same
+`base_url` and `extra_headers` block.
+
 ## API endpoints
 
 | Endpoint | Format |
